@@ -1,3 +1,17 @@
+{% comment %}
+  Requirements:
+    user.is_authenticated
+    if user.is_authenticated:
+      post.id
+      form
+    for comment in comments:
+      comment.author.username
+      comment.id
+      comment.created_at
+      comment.text
+      comment.author
+      post.id
+{% endcomment %}
 {% if user.is_authenticated %}
   {% load django_bootstrap5 %}
   <h5 class="mb-4">Оставить комментарий</h5>

@@ -1,4 +1,25 @@
 {% extends "base.html" %}
+{% comment %}
+  Requirements:
+    post.title
+    post.location
+    post.location.is_published
+    if post.location.is_published:
+      post.location.name
+    post.pub_date
+    post.image
+    if post.image:
+      post.image.url
+    post.is_published
+    post.category.is_published
+    post.pub_date
+    post.author.username
+    post.text
+    post.author
+    includes/category_link.html
+    includes/comments.html
+    post.id
+{% endcomment %}
 {% block title %}
   {{ post.title }} | {% if post.location and post.location.is_published %}{{ post.location.name }}{% else %}Планета Земля{% endif %} |
   {{ post.pub_date|date:"d E Y" }}

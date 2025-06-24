@@ -1,4 +1,19 @@
 {% extends "base.html" %}
+{% comment %}
+  Requirements:
+    if not '/delete/' in request.path:
+      form
+    form.instance.image
+    if form.instance.image:
+      form.instance.image.url
+    form.instance.pub_date
+    form.instance.location
+    form.instance.location.is_published
+    if form.instance.location.is_published:
+      form.instance.location.name
+    form.instance.title
+    form.instance.text
+{% endcomment %}
 {% load django_bootstrap5 %}
 {% block title %}
   {% if '/edit/' in request.path %}

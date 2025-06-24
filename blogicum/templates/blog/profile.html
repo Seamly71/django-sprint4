@@ -1,4 +1,14 @@
 {% extends "base.html" %}
+{% comment %}
+  Requirements:
+    profile.username
+    profile.get_full_name
+    profile.date_joined
+    profile.is_staff
+    user.is_authenticated
+    includes/post_card.html
+    includes/paginator.html
+{% endcomment %}
 {% block title %}
   Страница пользователя {{ profile.username }}
 {% endblock %}

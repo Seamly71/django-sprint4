@@ -1,3 +1,8 @@
+{% comment %}
+  Requirements:
+    post.category.title
+    post.category.slug
+{% endcomment %}
 <a class="text-muted" href="{% url 'blog:category_posts' post.category.slug %}">
   {{ post.category.title }}
 </a>

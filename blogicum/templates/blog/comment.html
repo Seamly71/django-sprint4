@@ -1,4 +1,16 @@
 {% extends "base.html" %}
+{% comment %}
+  Requirements:
+    user.is_authenticated
+    if user.is_authenticated:
+      if '/edit_comment/' in request.path
+        comment.post_id
+        comment.id
+      if not '/delete_comment/' in request.path:
+        form
+      else:
+        comment.text
+{% endcomment %}
 {% load django_bootstrap5 %}
 {% block title %}
   {% if '/edit_comment/' in request.path %}

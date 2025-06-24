@@ -1,3 +1,21 @@
+{% comment %}
+  post.image
+  if post.image:
+    post.image.url
+  post.title
+  post.is_published
+  post.category.is_published
+  post.pub_date
+  post.location
+  post.location.is_published
+  if post.location.is_published:
+    post.location.name
+  post.author.username
+  post.text
+  post.id
+  post.comment_count
+  includes/category_link.html
+{% endcomment %}
 <div class="col d-flex justify-content-center">
   <div class="card" style="width: 40rem;">
     <div class="card-body">
