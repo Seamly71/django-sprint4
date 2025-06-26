@@ -81,7 +81,7 @@ class Location(MetaFields):
 
 class Post(MetaFields, TitleField):
     objects = models.Manager()
-    posts = PostQuerySet.as_manager()
+    objects_posts = PostQuerySet.as_manager()
 
     text = models.TextField(
         null=False,
@@ -129,7 +129,7 @@ class Post(MetaFields, TitleField):
 
     class Meta:
         ordering = ('-pub_date',)
-        default_manager_name = 'objects'
+        default_manager_name = 'objects_posts'
 
         default_related_name = 'posts'
         verbose_name = 'публикация'

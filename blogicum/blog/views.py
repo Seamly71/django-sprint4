@@ -3,16 +3,23 @@ ListView, CreateView, UpdateView, DeleteView)
 from django.views.generic.edit import ModelFormMixin
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect
 
 
-from .models import Post, Comment, Category
-from .forms import PostForm, CommentForm, UserChangeInfoForm
+from blog.models import Post, Comment, Category
+from blog.forms import PostForm, CommentForm, UserChangeInfoForm
 
 
 MAX_POSTS_PER_PAGE = 10
 User = get_user_model()
+
+
+class CheckAuthorMixin(UserPassesTestMixin):
+
+    def test_func(self):
+        obj = self.get_object()
+        return obj.author == self.request.user
 
 
 # Классы комментариев
@@ -21,40 +28,37 @@ class CommentFormMixin:
     model = Comment
     form_class = CommentForm
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        kwargs['post_id'] = self.kwargs.get('post_id')
-        return kwargs
-
     def get_success_url(self):
         return reverse(
             'blog:post_detail',
             kwargs={'post_id': self.kwargs.get('post_id')}
         )
 
-
-class CommentAuthorizeAuthorMixin:
-
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        comment_author = Comment.objects.get(
-            pk=kwargs.get('pk')
-        ).author
-        if comment_author != request.user:
-            return redirect('blog:post_detail', post_id = kwargs.get('post_id'))
-        return super().get(request, *args, **kwargs)
+    def form_valid(self, form):
+        form.instance.post = get_object_or_404(
+            Post.objects_posts.all(),
+            pk=self.kwargs.get('post_id')
+        )
+        form.instance.author = self.request.user
+        return super().form_valid(form)
 
 
-class CommentCreateView(CommentFormMixin, LoginRequiredMixin, CreateView):
+class CheckCommentChangeValidity(CheckAuthorMixin):
+
+    def test_func(self):
+        subject_comment = self.get_object()
+        subject_post = get_object_or_404(
+            Post.objects_posts.all(),
+            pk=self.kwargs.get('post_id')
+        )
+        return super().test_func() and subject_comment.post == subject_post
+
+
+class CommentEditView(CommentFormMixin, CheckCommentChangeValidity, UpdateView):
     pass
 
 
-class CommentEditView(CommentFormMixin, CommentAuthorizeAuthorMixin ,LoginRequiredMixin, UpdateView):
-    pass
-
-
-class CommentDeleteView(CommentFormMixin, CommentAuthorizeAuthorMixin ,LoginRequiredMixin, ModelFormMixin, DeleteView):
+class CommentDeleteView(CommentFormMixin, CheckCommentChangeValidity, ModelFormMixin, DeleteView):
     # Тут мне я немного запутался
     # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
     # Метод post он не переопределяет
@@ -65,18 +69,15 @@ class CommentDeleteView(CommentFormMixin, CommentAuthorizeAuthorMixin ,LoginRequ
 
 
 # Классы постов
-class PostMixin:
+class PostFormMixin:
     model = Post
-
-
-class PostFormMixin(PostMixin):
     form_class = PostForm
     template_name = 'blog/create.html'
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        return kwargs
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
 
 
 class PostSuccessRedirectToProfileMixin:
@@ -88,11 +89,11 @@ class PostCreateView(PostFormMixin, PostSuccessRedirectToProfileMixin, LoginRequ
     pass
 
 
-class PostEditView(PostFormMixin, LoginRequiredMixin, UpdateView):
+class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
-        post_author = Post.objects.get(
+        post_author = Post.objects_posts.get(
             pk=kwargs.get('pk')
         ).author
         if post_author != request.user:
@@ -102,10 +103,10 @@ class PostEditView(PostFormMixin, LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         kwargs = self.get_form_kwargs()
-        return reverse('blog:post_detail', kwargs={'pk': self.kwargs.get('pk')})
+        return reverse('blog:post_detail', kwargs={'post_id': self.kwargs.get('pk')})
 
 
-class PostDeleteView(PostFormMixin, PostSuccessRedirectToProfileMixin, ModelFormMixin, LoginRequiredMixin, DeleteView):
+class PostDeleteView(PostFormMixin, PostSuccessRedirectToProfileMixin, CheckAuthorMixin, ModelFormMixin, DeleteView):
     # Тут мне я немного запутался
     # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
     # Метод post он не переопределяет
@@ -115,13 +116,13 @@ class PostDeleteView(PostFormMixin, PostSuccessRedirectToProfileMixin, ModelForm
         return self.delete(request, *args, **kwargs)
 
 
-class PostDetailView(CommentFormMixin, CreateView):
+class PostDetailView(CommentFormMixin, LoginRequiredMixin, CreateView):
     template_name = 'blog/detail.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         context['post'] = get_object_or_404(
-            Post.posts.join_related_all(
+            Post.objects_posts.join_related_all(
             ).filter_valid(),
             pk=self.kwargs.get('post_id')
         )
@@ -137,10 +138,16 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
     form_class = UserChangeInfoForm
     success_url = reverse_lazy('blog:index')
 
+    '''
     def get_object(self, queryset=None):
         obj = User.objects.get(
             username=self.request.user.username
         )
+        return obj
+    '''
+
+    def get_object(self, queryset=None):
+        obj = self.request.user
         return obj
 
 
@@ -157,7 +164,7 @@ class ProfileView(ListView):
             username=subject_username
         )
         order = self.get_ordering()
-        queryset = Post.posts.join_related_all(
+        queryset = Post.objects_posts.join_related_all(
         ).filter(
             author__username=subject_username
         ).add_comment_count(
@@ -187,7 +194,7 @@ class CategoryView(ListView):
     def get_queryset(self):
         order = self.get_ordering()
         category_slug = self.kwargs.get('category_slug')
-        queryset = Post.posts.join_related_all(
+        queryset = Post.objects_posts.join_related_all(
         ).filter_valid(
         ).filter(
             category__slug=category_slug
@@ -217,7 +224,7 @@ class IndexView(ListView):
 
     def get_queryset(self):
         order = self.get_ordering()
-        queryset = Post.posts.join_related_all(
+        queryset = Post.objects_posts.join_related_all(
         ).filter_valid(
         ).add_comment_count(
         ).order_by(order)

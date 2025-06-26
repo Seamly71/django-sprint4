@@ -4,10 +4,11 @@ from . import views
 
 app_name = 'blog'
 
+
 urlpatterns = [
     path(
         'posts/<int:post_id>/comment/',
-        views.CommentCreateView.as_view(),
+        views.PostDetailView.as_view(),
         name='add_comment'
     ),
     path(
