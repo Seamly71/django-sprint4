@@ -31,11 +31,11 @@ urlpatterns = [
     path(
         'auth/registration/',
         CreateView.as_view(
-            template_name = 'registration/registration_form.html',
-            form_class = UserRegisterForm,
-            success_url = reverse_lazy('blog:index')
+            template_name='registration/registration_form.html',
+            form_class=UserRegisterForm,
+            success_url=reverse_lazy('blog:index')
         ),
-        name = 'registration'
+        name='registration'
     ),
     path('auth/', include('django.contrib.auth.urls')),
     path('pages/', include('pages.urls')),

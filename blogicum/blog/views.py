@@ -1,5 +1,6 @@
 from django.views.generic import (
-ListView, CreateView, UpdateView, DeleteView)
+    ListView, CreateView, UpdateView, DeleteView
+)
 from django.views.generic.edit import ModelFormMixin
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth import get_user_model
@@ -54,15 +55,25 @@ class CheckCommentChangeValidity(CheckAuthorMixin):
         return super().test_func() and subject_comment.post == subject_post
 
 
-class CommentEditView(CommentFormMixin, CheckCommentChangeValidity, UpdateView):
+class CommentEditView(
+    CommentFormMixin,
+    CheckCommentChangeValidity,
+    UpdateView
+):
     pass
 
 
-class CommentDeleteView(CommentFormMixin, CheckCommentChangeValidity, ModelFormMixin, DeleteView):
+class CommentDeleteView(
+    CommentFormMixin,
+    CheckCommentChangeValidity,
+    ModelFormMixin,
+    DeleteView
+):
     # Тут мне я немного запутался
     # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
     # Метод post он не переопределяет
-    # Но если post вот так эксплицитно не определить (а это определение я взял из DeletionMixin)
+    # Но если post вот так эксплицитно не определить
+    # (а это определение я взял из DeletionMixin)
     # То при нажатии кнопки DeleteView.delete() не будет вызван вообще
     def post(self, request, *args, **kwargs):
         return self.delete(request, *args, **kwargs)
@@ -74,7 +85,6 @@ class PostFormMixin:
     form_class = PostForm
     template_name = 'blog/create.html'
 
-
     def form_valid(self, form):
         form.instance.author = self.request.user
         return super().form_valid(form)
@@ -82,10 +92,18 @@ class PostFormMixin:
 
 class PostSuccessRedirectToProfileMixin:
     def get_success_url(self):
-        return reverse('blog:profile', kwargs={'username': self.request.user.username})
+        return reverse(
+            'blog:profile',
+            kwargs={'username': self.request.user.username}
+        )
 
 
-class PostCreateView(PostFormMixin, PostSuccessRedirectToProfileMixin, LoginRequiredMixin, CreateView):
+class PostCreateView(
+    PostFormMixin,
+    PostSuccessRedirectToProfileMixin,
+    LoginRequiredMixin,
+    CreateView
+):
     pass
 
 
@@ -100,17 +118,24 @@ class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
             return redirect('blog:post_detail', post_id=kwargs.get('pk'))
         return super().get(request, *args, **kwargs)
 
-
     def get_success_url(self):
-        kwargs = self.get_form_kwargs()
-        return reverse('blog:post_detail', kwargs={'post_id': self.kwargs.get('pk')})
+        return reverse(
+            'blog:post_detail',
+            kwargs={'post_id': self.kwargs.get('pk')}
+        )
 
 
-class PostDeleteView(PostFormMixin, PostSuccessRedirectToProfileMixin, CheckAuthorMixin, ModelFormMixin, DeleteView):
+class PostDeleteView(
+    PostFormMixin,
+    PostSuccessRedirectToProfileMixin,
+    CheckAuthorMixin, ModelFormMixin,
+    DeleteView
+):
     # Тут мне я немного запутался
     # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
     # Метод post он не переопределяет
-    # Но если post вот так эксплицитно не определить (а это определение я взял из DeletionMixin)
+    # Но если post вот так эксплицитно не определить
+    # (а это определение я взял из DeletionMixin)
     # То при нажатии кнопки DeleteView.delete() не будет вызван вообще
     def post(self, request, *args, **kwargs):
         return self.delete(request, *args, **kwargs)
