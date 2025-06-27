@@ -1,8 +1,3 @@
-{% comment %}
-  Requirements:
-    user.is_authenticated
-    user.username
-{% endcomment %}
 {% load static %}
 <header>
   <nav class="navbar navbar-light" style="background-color: lightskyblue">
@@ -29,14 +24,8 @@
                   href="{% url 'blog:create_post' %}">Написать пост</a></button>
               <button type="button" class="btn btn-outline-primary"><a class="text-decoration-none text-reset"
                   href="{% url 'blog:profile' user.username %}">{{ user.username }}</a></button>
-              {% comment %}
-                Пришлось изменить шаблон, сменив кнопку на форму,
-                так как django требует логаут через post вместе с csrf-токеном.
-              {% endcomment %}
-              <form class="btn-group" action="{% url 'logout' %}" method="post">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-primary">Выйти</button>
-              </form>
+              <button type="button" class="btn btn-outline-primary"><a class="text-decoration-none text-reset"
+                  href="{% url 'logout' %}">Выйти</a></button>
             </div>
           {% else %}
             <div class="btn-group" role="group" aria-label="Basic outlined example">

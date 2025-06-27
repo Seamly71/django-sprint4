@@ -64,19 +64,17 @@ class CommentEditView(
 
 
 class CommentDeleteView(
-    CommentFormMixin,
     CheckCommentChangeValidity,
-    ModelFormMixin,
     DeleteView
 ):
-    # Тут мне я немного запутался
-    # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
-    # Метод post он не переопределяет
-    # Но если post вот так эксплицитно не определить
-    # (а это определение я взял из DeletionMixin)
-    # То при нажатии кнопки DeleteView.delete() не будет вызван вообще
-    def post(self, request, *args, **kwargs):
-        return self.delete(request, *args, **kwargs)
+    template_name = 'blog/comment.html'
+    model = Comment
+
+    def get_success_url(self):
+        return reverse(
+            'blog:post_detail',
+            kwargs={'post_id': self.kwargs.get('post_id')}
+        )
 
 
 # Классы постов
@@ -114,7 +112,7 @@ class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
         post_author = Post.objects_posts.get(
             pk=kwargs.get('pk')
         ).author
-        if post_author != request.user:
+        if post_author != request.user or not request.user.is_authenticated:
             return redirect('blog:post_detail', post_id=kwargs.get('pk'))
         return super().get(request, *args, **kwargs)
 
@@ -123,6 +121,9 @@ class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
             'blog:post_detail',
             kwargs={'post_id': self.kwargs.get('pk')}
         )
+
+    def handle_no_permission(self):
+        return redirect('blog:post_detail', post_id=self.kwargs.get('pk'))
 
 
 class PostDeleteView(
@@ -146,11 +147,16 @@ class PostDetailView(CommentFormMixin, LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
-        context['post'] = get_object_or_404(
-            Post.objects_posts.join_related_all(
-            ).filter_valid(),
+        subject_post = get_object_or_404(
+            Post.objects_posts.join_related_all(),
             pk=self.kwargs.get('post_id')
         )
+        if subject_post.author != self.request.user:
+            subject_post = get_object_or_404(
+                Post.objects_posts.join_related_all().filter_valid(),
+                pk=self.kwargs.get('post_id')
+            )
+        context['post'] = subject_post
         context['comments'] = Comment.objects.filter(
             post=self.kwargs.get('post_id')
         )
