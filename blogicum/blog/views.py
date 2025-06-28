@@ -1,5 +1,8 @@
 from django.views.generic import (
-    ListView, CreateView, UpdateView, DeleteView
+    ListView,
+    CreateView,
+    UpdateView,
+    DeleteView
 )
 from django.views.generic.edit import ModelFormMixin
 from django.urls import reverse, reverse_lazy
@@ -9,7 +12,12 @@ from django.shortcuts import get_object_or_404, redirect
 
 
 from blog.models import Post, Comment, Category
-from blog.forms import PostForm, CommentForm, UserChangeInfoForm
+from blog.forms import (
+    PostForm,
+    CommentForm,
+    UserChangeInfoForm,
+    UserRegisterForm
+)
 
 
 MAX_POSTS_PER_PAGE = 10
@@ -24,16 +32,19 @@ class CheckAuthorMixin(UserPassesTestMixin):
 
 
 # Классы комментариев
-class CommentFormMixin:
+class CommentGeneralMixin:
     template_name = 'blog/comment.html'
     model = Comment
-    form_class = CommentForm
 
     def get_success_url(self):
         return reverse(
             'blog:post_detail',
             kwargs={'post_id': self.kwargs.get('post_id')}
         )
+
+
+class CommentFormMixin(CommentGeneralMixin):
+    form_class = CommentForm
 
     def form_valid(self, form):
         form.instance.post = get_object_or_404(
@@ -64,17 +75,11 @@ class CommentEditView(
 
 
 class CommentDeleteView(
+    CommentGeneralMixin,
     CheckCommentChangeValidity,
     DeleteView
 ):
-    template_name = 'blog/comment.html'
-    model = Comment
-
-    def get_success_url(self):
-        return reverse(
-            'blog:post_detail',
-            kwargs={'post_id': self.kwargs.get('post_id')}
-        )
+    pass
 
 
 # Классы постов
@@ -107,15 +112,6 @@ class PostCreateView(
 
 class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
 
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        post_author = Post.objects_posts.get(
-            pk=kwargs.get('pk')
-        ).author
-        if post_author != request.user or not request.user.is_authenticated:
-            return redirect('blog:post_detail', post_id=kwargs.get('pk'))
-        return super().get(request, *args, **kwargs)
-
     def get_success_url(self):
         return reverse(
             'blog:post_detail',
@@ -129,10 +125,11 @@ class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
 class PostDeleteView(
     PostFormMixin,
     PostSuccessRedirectToProfileMixin,
-    CheckAuthorMixin, ModelFormMixin,
-    DeleteView
+    CheckAuthorMixin,
+    ModelFormMixin,
+    DeleteView,
 ):
-    # Тут мне я немного запутался
+    # Тут я немного запутался
     # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
     # Метод post он не переопределяет
     # Но если post вот так эксплицитно не определить
@@ -147,35 +144,34 @@ class PostDetailView(CommentFormMixin, LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
+        post_id = self.kwargs.get('post_id')
         subject_post = get_object_or_404(
             Post.objects_posts.join_related_all(),
-            pk=self.kwargs.get('post_id')
+            pk=post_id
         )
         if subject_post.author != self.request.user:
             subject_post = get_object_or_404(
                 Post.objects_posts.join_related_all().filter_valid(),
-                pk=self.kwargs.get('post_id')
+                pk=post_id
             )
         context['post'] = subject_post
         context['comments'] = Comment.objects.filter(
-            post=self.kwargs.get('post_id')
+            post=post_id
         )
         return context
 
 
 # Классы профилей
+class ProfileCreateView(CreateView):
+    template_name = 'registration/registration_form.html',
+    form_class = UserRegisterForm,
+    success_url = reverse_lazy('blog:index')
+
+
 class ProfileEditView(LoginRequiredMixin, UpdateView):
     template_name = 'registration/registration_form.html'
     form_class = UserChangeInfoForm
     success_url = reverse_lazy('blog:index')
-
-    '''
-    def get_object(self, queryset=None):
-        obj = User.objects.get(
-            username=self.request.user.username
-        )
-        return obj
-    '''
 
     def get_object(self, queryset=None):
         obj = self.request.user
@@ -201,7 +197,12 @@ class ProfileView(ListView):
         ).add_comment_count(
         ).order_by(order)
         if self.request.user != subject_user:
-            queryset = queryset.filter_valid()
+            queryset = Post.objects_posts.join_related_all(
+            ).filter(
+                author__username=subject_username
+            ).filter_valid(
+            ).add_comment_count(
+            ).order_by(order)
         return queryset
 
     def get_context_data(self, *, object_list=None, **kwargs):

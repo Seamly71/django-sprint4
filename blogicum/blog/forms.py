@@ -27,7 +27,7 @@ class PostForm(ModelForm):
             'image',
             'pub_date',
             'category',
-            'location',
+            'location'
         )
 
 

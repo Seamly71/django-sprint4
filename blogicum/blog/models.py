@@ -153,7 +153,7 @@ class Comment(MetaFields):
         on_delete=models.CASCADE,
         null=False,
         blank=False,
-        verbose_name='Автор'
+        verbose_name='Автор комментария'
     )
 
     class Meta:
