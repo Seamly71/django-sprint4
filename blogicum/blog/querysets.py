@@ -18,4 +18,8 @@ class PostQuerySet(models.QuerySet):
         )
 
     def add_comment_count(self):
-        return self.annotate(comment_count=models.Count('comments'))
+        return self.annotate(
+            comment_count=models.Count('comments')
+        ).order_by(
+            *self.model._meta.ordering
+        )
