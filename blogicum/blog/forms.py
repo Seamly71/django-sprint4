@@ -17,8 +17,7 @@ class PostForm(ModelForm):
     class Meta:
         model = Post
         exclude = (
-            'is_published',
-            'author'
+            'author',
         )
 
 

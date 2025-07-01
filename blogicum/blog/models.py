@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.timezone import now
-from textwrap import shorten
 
 from .querysets import PostQuerySet
 
@@ -12,7 +11,7 @@ MAX_DESCRIPTION_LENGTH = 40
 User = get_user_model()
 
 
-class ModerationFields(models.Model):
+class CreatedAtIsPublishedFields(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Добавлено'
@@ -28,7 +27,7 @@ class ModerationFields(models.Model):
         abstract = True
 
 
-class Category(ModerationFields):
+class Category(CreatedAtIsPublishedFields):
     title = models.CharField(
         max_length=256,
         verbose_name='Заголовок'
@@ -39,21 +38,15 @@ class Category(ModerationFields):
     slug = models.SlugField(
         unique=True,
         verbose_name='Идентификатор',
-        help_text=(
+        help_text=
             'Идентификатор страницы для URL; '
             'разрешены символы латиницы, цифры, дефис и подчёркивание.'
-        )
     )
 
     def __str__(self):
-        return shorten(
-            text=str(self.title),
-            width=MAX_TITLE_LENGTH,
-            placeholder='...'
-        ) + ' | ' + shorten(
-            text=str(self.description),
-            width=MAX_DESCRIPTION_LENGTH,
-            placeholder='...'
+        return (
+            f'{self.title[:MAX_TITLE_LENGTH]}'
+            f' | {self.description[:MAX_DESCRIPTION_LENGTH]}'
         )
 
     class Meta:
@@ -63,18 +56,14 @@ class Category(ModerationFields):
         verbose_name_plural = 'Категории'
 
 
-class Location(ModerationFields):
+class Location(CreatedAtIsPublishedFields):
     name = models.CharField(
         max_length=256,
         verbose_name='Название места'
     )
 
     def __str__(self):
-        return shorten(
-            text=str(self.name),
-            width=MAX_TITLE_LENGTH,
-            placeholder='...'
-        )
+        return f'{self.name[:MAX_TITLE_LENGTH]}'
 
     class Meta:
         ordering = ('name',)
@@ -83,7 +72,7 @@ class Location(ModerationFields):
         verbose_name_plural = 'Местоположения'
 
 
-class Post(ModerationFields):
+class Post(CreatedAtIsPublishedFields):
     objects = PostQuerySet.as_manager()
 
     title = models.CharField(
@@ -97,10 +86,9 @@ class Post(ModerationFields):
         blank=True,
         default=now,
         verbose_name='Дата и время публикации',
-        help_text=(
+        help_text=
             'Если установить дату и время в будущем — '
             'можно делать отложенные публикации.'
-        )
     )
     image = models.ImageField(
         null=True,
@@ -135,7 +123,7 @@ class Post(ModerationFields):
         verbose_name_plural = 'Публикации'
 
 
-class Comment(ModerationFields):
+class Comment(CreatedAtIsPublishedFields):
     text = models.TextField(
         verbose_name='Текст комментария'
     )

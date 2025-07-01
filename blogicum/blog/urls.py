@@ -38,7 +38,7 @@ urlpatterns = [
     ),
     path(
         'posts/<int:post_id>/',
-        views.CommentCreateView.as_view(),
+        views.PostDetailView.as_view(),
         name='post_detail'
     ),
     path(

@@ -1,14 +1,15 @@
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import (
     ListView,
     CreateView,
     UpdateView,
-    DeleteView
+    DeleteView,
+    DetailView
 )
-from django.views.generic.edit import ModelFormMixin
+from django.utils.timezone import now
 from django.urls import reverse, reverse_lazy
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import get_object_or_404, redirect
 
 from blog.models import Post, Comment, Category, User
 from blog.forms import (
@@ -31,6 +32,7 @@ class CheckAuthorMixin(UserPassesTestMixin):
 class CommentGeneralMixin:
     template_name = 'blog/comment.html'
     model = Comment
+    pk_url_kwarg = 'comment_id'
 
     def get_success_url(self):
         return reverse(
@@ -55,25 +57,6 @@ class CheckCommentChangeValidity(CheckAuthorMixin):
 
 
 class CommentCreateView(CommentFormMixin, LoginRequiredMixin, CreateView):
-    template_name = 'blog/detail.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data()
-        post_id = self.kwargs['post_id']
-        subject_post = get_object_or_404(
-            Post.objects.join_related_all(),
-            pk=post_id
-        )
-        if subject_post.author != self.request.user:
-            subject_post = get_object_or_404(
-                Post.objects.join_related_all().filter_valid(),
-                pk=post_id
-            )
-        context['post'] = subject_post
-        context['comments'] = Comment.objects.filter(
-            post=post_id
-        )
-        return context
 
     def form_valid(self, form):
         form.instance.post = get_object_or_404(
@@ -89,7 +72,7 @@ class CommentEditView(
     CheckCommentChangeValidity,
     UpdateView
 ):
-    pk_url_kwarg = 'comment_id'
+    pass
 
 
 class CommentDeleteView(
@@ -97,7 +80,7 @@ class CommentDeleteView(
     CheckCommentChangeValidity,
     DeleteView
 ):
-    pk_url_kwarg = 'comment_id'
+    pass
 
 
 # Классы постов
@@ -145,31 +128,50 @@ class PostEditView(PostFormMixin, CheckAuthorMixin, UpdateView):
 
 
 class PostDeleteView(
-    PostFormMixin,
     PostSuccessRedirectToProfileMixin,
     CheckAuthorMixin,
     DeleteView,
-    ModelFormMixin,
 ):
+    model = Post
     pk_url_kwarg = 'post_id'
+    template_name = 'blog/create.html'
 
-    # Тут я немного запутался
-    # Тут я подмешиваю ModelFormMixin, чтобы заполнять form.instance в шаблоне
-    # Метод post он не переопределяет
-    # Но если post вот так эксплицитно не определить
-    # (а это определение я взял из DeletionMixin)
-    # То при нажатии кнопки DeleteView.delete() не будет вызван вообще
-    def post(self, request, *args, **kwargs):
-        return self.delete(request, *args, **kwargs)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = PostForm()
+        context['form'].instance = kwargs['object']
+        return context
+
+
+class PostDetailView(DetailView):
+    model = Post
+    pk_url_kwarg = 'post_id'
+    template_name = 'blog/detail.html'
+
+    def get_object(self, posts=None):
+        post = get_object_or_404(
+            Post.objects.join_related_all(),
+            pk=self.kwargs[self.pk_url_kwarg]
+        )
+        if (
+            post.author != self.request.user and (
+                not post.is_published or
+                not post.category.is_published or
+                post.pub_date > now()
+            )
+        ):
+            raise Http404
+        return post
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            **kwargs,
+            form=CommentForm(),
+            comments=kwargs['object'].comments.all()
+        )
 
 
 # Классы профилей
-class ProfileCreateView(CreateView):
-    template_name = 'registration/registration_form.html',
-    form_class = UserCreationForm,
-    success_url = reverse_lazy('blog:index')
-
-
 class ProfileEditView(LoginRequiredMixin, UpdateView):
     template_name = 'registration/registration_form.html'
     form_class = UserChangeInfoForm
@@ -184,25 +186,21 @@ class ProfileView(ListView):
     template_name = 'blog/profile.html'
     paginate_by = MAX_POSTS_PER_PAGE
 
-    def __init__(self):
-        super().__init__()
-        self.subject_author = None
-
-    def get_queryset(self):
-        self.subject_author = get_object_or_404(
+    def get_subject_author(self):
+        return get_object_or_404(
             User,
             username=self.kwargs['username']
         )
-        author_posts = self.subject_author.posts.join_related_all(
+
+    def get_queryset(self):
+        subject_author = self.get_subject_author()
+        return subject_author.posts.join_related_all(
+        ).filter_valid(
+            access_to_hidden=self.request.user==subject_author
         ).add_comment_count()
-        if self.request.user != self.subject_author:
-            author_posts = self.subject_author.posts.join_related_all(
-            ).filter_valid(
-            ).add_comment_count()
-        return author_posts
 
     def get_context_data(self, *, object_list=None, **kwargs):
-        return super().get_context_data(**kwargs, profile=self.subject_author)
+        return super().get_context_data(**kwargs, profile=self.get_subject_author())
 
 
 # Классы общего контента блога
@@ -219,15 +217,6 @@ class CategoryView(ListView):
         ).posts.join_related_all(
         ).filter_valid(
         ).add_comment_count()
-
-    def get_context_data(self, *, object_list=None, **kwargs):
-        return super().get_context_data(
-            **kwargs,
-            category=get_object_or_404(
-                Category,
-                slug=self.kwargs['category_slug']
-            )
-        )
 
 
 class IndexView(ListView):

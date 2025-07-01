@@ -10,7 +10,9 @@ class PostQuerySet(models.QuerySet):
             'location'
         )
 
-    def filter_valid(self):
+    def filter_valid(self, *, access_to_hidden=False):
+        if access_to_hidden:
+            return self
         return self.filter(
             category__is_published=True,
             is_published=True,
