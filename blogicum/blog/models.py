@@ -38,9 +38,10 @@ class Category(CreatedAtIsPublishedFields):
     slug = models.SlugField(
         unique=True,
         verbose_name='Идентификатор',
-        help_text=
+        help_text=(
             'Идентификатор страницы для URL; '
             'разрешены символы латиницы, цифры, дефис и подчёркивание.'
+        )
     )
 
     def __str__(self):
@@ -86,9 +87,10 @@ class Post(CreatedAtIsPublishedFields):
         blank=True,
         default=now,
         verbose_name='Дата и время публикации',
-        help_text=
+        help_text=(
             'Если установить дату и время в будущем — '
             'можно делать отложенные публикации.'
+        )
     )
     image = models.ImageField(
         null=True,

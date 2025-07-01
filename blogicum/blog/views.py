@@ -155,9 +155,9 @@ class PostDetailView(DetailView):
         )
         if (
             post.author != self.request.user and (
-                not post.is_published or
-                not post.category.is_published or
-                post.pub_date > now()
+                not post.is_published
+                or not post.category.is_published
+                or post.pub_date > now()
             )
         ):
             raise Http404
@@ -196,11 +196,14 @@ class ProfileView(ListView):
         subject_author = self.get_subject_author()
         return subject_author.posts.join_related_all(
         ).filter_valid(
-            access_to_hidden=self.request.user==subject_author
+            access_to_hidden=self.request.user == subject_author
         ).add_comment_count()
 
     def get_context_data(self, *, object_list=None, **kwargs):
-        return super().get_context_data(**kwargs, profile=self.get_subject_author())
+        return super().get_context_data(
+            **kwargs,
+            profile=self.get_subject_author()
+        )
 
 
 # Классы общего контента блога
