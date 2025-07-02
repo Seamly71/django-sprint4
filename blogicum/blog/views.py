@@ -1,5 +1,4 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import (
     ListView,
@@ -8,15 +7,14 @@ from django.views.generic import (
     DeleteView,
     DetailView
 )
-from django.utils.timezone import now
 from django.urls import reverse, reverse_lazy
 
-from blog.models import Post, Comment, Category, User
 from blog.forms import (
     PostForm,
     CommentForm,
     UserChangeInfoForm
 )
+from blog.models import Post, Comment, Category, User
 
 
 MAX_POSTS_PER_PAGE = 10
@@ -149,18 +147,12 @@ class PostDetailView(DetailView):
     template_name = 'blog/detail.html'
 
     def get_object(self, posts=None):
-        post = get_object_or_404(
-            Post.objects.join_related_all(),
-            pk=self.kwargs[self.pk_url_kwarg]
+        post = super().get_object(posts)
+        if post.author == self.request.user:
+            return post
+        post = super().get_object(
+            Post.objects.filter_valid()
         )
-        if (
-            post.author != self.request.user and (
-                not post.is_published
-                or not post.category.is_published
-                or post.pub_date > now()
-            )
-        ):
-            raise Http404
         return post
 
     def get_context_data(self, **kwargs):
@@ -186,23 +178,23 @@ class ProfileView(ListView):
     template_name = 'blog/profile.html'
     paginate_by = MAX_POSTS_PER_PAGE
 
-    def get_subject_author(self):
+    def get_author(self):
         return get_object_or_404(
             User,
             username=self.kwargs['username']
         )
 
     def get_queryset(self):
-        subject_author = self.get_subject_author()
-        return subject_author.posts.join_related_all(
+        author = self.get_author()
+        return author.posts.join_related_all(
         ).filter_valid(
-            access_to_hidden=self.request.user == subject_author
+            access_to_hidden=self.request.user == author
         ).add_comment_count()
 
     def get_context_data(self, *, object_list=None, **kwargs):
         return super().get_context_data(
             **kwargs,
-            profile=self.get_subject_author()
+            profile=self.get_author()
         )
 
 
@@ -220,6 +212,15 @@ class CategoryView(ListView):
         ).posts.join_related_all(
         ).filter_valid(
         ).add_comment_count()
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        return super().get_context_data(
+            object_list=None,
+            **kwargs,
+            category=Category.objects.get(
+                slug=self.kwargs['category_slug']
+            )
+        )
 
 
 class IndexView(ListView):

@@ -125,7 +125,11 @@ class Post(CreatedAtIsPublishedFields):
         verbose_name_plural = 'Публикации'
 
 
-class Comment(CreatedAtIsPublishedFields):
+class Comment(models.Model):
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Добавлено'
+    )
     text = models.TextField(
         verbose_name='Текст комментария'
     )
